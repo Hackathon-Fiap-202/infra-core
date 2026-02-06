@@ -7,4 +7,5 @@ variable "bucket_state_name" {
 variable "environment" {
   description = "Ambiente de deploy"
   type        = string
+  default     = "prod"
 }
