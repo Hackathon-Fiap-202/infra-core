@@ -29,11 +29,6 @@ variable "sg_api_name" {
   description = "Nome do Security Group da API"
 }
 
-variable "sg_postgres_name" {
-  type        = string
-  description = "Nome do Security Group do PostgreSQL"
-}
-
 variable "acl_name" {
   type        = string
   description = "Nome do Network ACL"

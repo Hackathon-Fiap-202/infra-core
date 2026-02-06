@@ -28,11 +28,6 @@ output "security_group_api_id" {
   value       = module.security_group_api.security_group_id
 }
 
-output "security_group_postgres_id" {
-  description = "ID do Security Group do PostgreSQL"
-  value       = module.security_group_postgres.postgres_sg_id
-}
-
 output "network_acl_id" {
   description = "ID do Network ACL"
   value       = module.acl.acl_id
