@@ -76,11 +76,6 @@ variable "bucket_name" {
   type        = string
 }
 
-variable "bucket_state_name" {
-  description = "Nome do bucket"
-  type        = string
-}
-
 variable "region" {
   description = "Região da AWS"
   type = string
