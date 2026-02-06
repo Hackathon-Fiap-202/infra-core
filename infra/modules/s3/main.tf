@@ -1,23 +1,23 @@
-# Criação do bucket S3
-resource "aws_s3_bucket" "terraform_state" {
+resource "aws_s3_bucket" "process_bucket" {
   bucket = var.bucket_name
 
   tags = {
-    Name        = "proccess-bucket"
+    Name        = "process-bucket"
     Environment = var.environment
   }
 }
 
-resource "aws_s3_bucket_versioning" "versioning" {
-  bucket = aws_s3_bucket.terraform_state.id
+resource "aws_s3_bucket_versioning" "process_bucket" {
+  bucket = aws_s3_bucket.process_bucket.id
 
   versioning_configuration {
     status = "Enabled"
   }
 }
 
-resource "aws_s3_bucket_server_side_encryption_configuration" "encryption" {
-  bucket = aws_s3_bucket.terraform_state.id
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "process_bucket" {
+  bucket = aws_s3_bucket.process_bucket.id
 
   rule {
     apply_server_side_encryption_by_default {
