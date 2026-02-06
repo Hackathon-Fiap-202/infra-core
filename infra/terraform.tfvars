@@ -32,5 +32,4 @@ tags = {
 }
 
 # S3
-bucket_state_name = "nextime-frame-state-bucket"
 bucket_name = "nextime-frame-state-bucket"
