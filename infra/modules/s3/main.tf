@@ -26,7 +26,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "process_bucket" {
 }
 
 resource "aws_sqs_queue_policy" "allow_s3_events" {
-  queue_url = data.terraform_remote_state.messaging.outputs.sqs_queue_urls["video-uploaded-queue"]
+  queue_url = data.terraform_remote_state.messaging.outputs.sqs_queue_urls["video-uploaded-event"]
 
   policy = jsonencode({
     Version = "2012-10-17"
