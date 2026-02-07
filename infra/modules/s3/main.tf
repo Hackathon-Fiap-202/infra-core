@@ -15,7 +15,6 @@ resource "aws_s3_bucket_versioning" "process_bucket" {
   }
 }
 
-
 resource "aws_s3_bucket_server_side_encryption_configuration" "process_bucket" {
   bucket = aws_s3_bucket.process_bucket.id
 
@@ -25,3 +24,41 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "process_bucket" {
     }
   }
 }
+
+resource "aws_sqs_queue_policy" "allow_s3_events" {
+  queue_url = data.terraform_remote_state.outputs.sqs_queue_urls["video-uploaded-queue"]
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "s3.amazonaws.com"
+        }
+        Action   = "sqs:SendMessage"
+        Resource = data.terraform_remote_state.outputs.sqs_queue_arns["video-uploaded-event"]
+        Condition = {
+          ArnEquals = {
+            "aws:SourceArn" = aws_s3_bucket.process_bucket.arn
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_s3_bucket_notification" "start_process_trigger" {
+  bucket = aws_s3_bucket.process_bucket.id
+
+  queue {
+    queue_arn = data.terraform_remote_state.outputs.sqs_queue_arns["video-uploaded-event"]
+    events    = ["s3:ObjectCreated:*"]
+
+    filter_prefix = "start-process/"
+  }
+
+  depends_on = [aws_sqs_queue_policy.allow_s3_events]
+}
+
+
