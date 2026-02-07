@@ -6,12 +6,12 @@ terraform {
     }
   }
 
-  # backend "s3" {
-  #   bucket  = "nextime-frame-state-bucket"
-  #   key     = "infra-core/infra.tfstate"
-  #   region  = "us-east-1"
-  #   encrypt = true
-  # }
+  backend "s3" {
+    bucket  = "nextime-frame-state-bucket"
+    key     = "infra-core/infra.tfstate"
+    region  = "us-east-1"
+    encrypt = true
+  }
 
 }
 
