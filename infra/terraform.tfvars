@@ -30,6 +30,3 @@ acl_name = "infra-acl"
 tags = {
   Owner = "nexTime-frame"
 }
-
-# S3
-bucket_name = "nextime-frame-proccess-bucket"
