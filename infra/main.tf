@@ -74,33 +74,11 @@ module "ecr" {
   tags                 = var.tags
 }
 
-# 🔹 Security Group for ECS tasks (referenced by DocumentDB module)
-resource "aws_security_group" "ecs_tasks" {
-  name        = "nextime-ecs-tasks-sg"
-  description = "Security group for ECS Fargate tasks"
-  vpc_id      = module.vpc.vpc_id
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = merge({ Name = "nextime-ecs-tasks-sg" }, var.tags)
-}
-
-# 🔹 DocumentDB (MongoDB-compatible)
+# Secrets Manager — MongoDB Atlas URI
 module "documentdb" {
   source = "./modules/documentdb"
 
-  cluster_identifier        = var.docdb_cluster_identifier
-  master_username           = var.docdb_master_username
-  master_password           = var.docdb_master_password
-  instance_class            = var.docdb_instance_class
-  instance_count            = var.docdb_instance_count
-  subnet_ids                = module.private_subnet.private_subnet_ids
-  vpc_id                    = module.vpc.vpc_id
-  allowed_security_group_id = aws_security_group.ecs_tasks.id
-  tags                      = var.tags
+  cluster_identifier = var.docdb_cluster_identifier
+  mongo_uri          = var.mongo_uri
+  tags               = var.tags
 }
