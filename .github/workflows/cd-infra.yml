@@ -36,6 +36,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+          role-duration-seconds: 3600
 
       - name: Terraform Init (bootstrap)
         run: terraform init
@@ -64,6 +65,7 @@ jobs:
       - name: Terraform Plan (infra)
         run: |
           terraform plan \
+            -input=false \
             -var="docdb_master_password=${{ secrets.DOCDB_MASTER_PASSWORD }}" \
             -out=tfplan
         working-directory: infra
