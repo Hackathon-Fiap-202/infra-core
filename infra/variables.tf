@@ -77,36 +77,17 @@ variable "region" {
 }
 
 # ========================================
-# DocumentDB Variables
+# DocumentDB / MongoDB Atlas Variables
 # ========================================
 variable "docdb_cluster_identifier" {
-  description = "DocumentDB cluster identifier"
+  description = "Identifier used as prefix for the Secrets Manager secret name"
   type        = string
   default     = "nextime-docdb"
 }
 
-variable "docdb_master_username" {
-  description = "DocumentDB master username"
-  type        = string
-  default     = "nexadmin"
-}
-
-variable "docdb_master_password" {
-  description = "DocumentDB master password"
+variable "mongo_uri" {
+  description = "MongoDB Atlas connection URI (injected at plan time via GitHub Secret MONGO_URI)"
   type        = string
   sensitive   = true
 }
-
-variable "docdb_instance_class" {
-  description = "DocumentDB instance class"
-  type        = string
-  default     = "db.t3.medium"
-}
-
-variable "docdb_instance_count" {
-  description = "Number of DocumentDB instances"
-  type        = number
-  default     = 1
-}
-
 
