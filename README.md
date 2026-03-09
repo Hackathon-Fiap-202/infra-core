@@ -80,7 +80,7 @@ Antes de começar, certifique-se de ter instalado:
 - [Terraform](https://www.terraform.io/downloads) >= 1.0
 - [AWS CLI](https://aws.amazon.com/cli/) configurado
 - Credenciais AWS configuradas (via `aws configure` ou variáveis de ambiente)
-- Acesso ao bucket S3 `nextime-frame-state-bucket` na região `us-east-1`
+- Acesso ao bucket S3 `nextime-frame-state-bucket-s3` na região `us-east-1`
 
 ## ⚙️ Configuração
 
@@ -242,7 +242,7 @@ terraform output
 
 O estado do Terraform é armazenado remotamente no S3:
 
-- **Bucket**: `nextime-frame-state-bucket`
+- **Bucket**: `nextime-frame-state-bucket-s3`
 - **Key**: `infra-core/infra.tfstate`
 - **Região**: `us-east-1`
 - **Criptografia**: Habilitada (AES256)
