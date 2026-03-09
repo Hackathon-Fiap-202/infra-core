@@ -62,5 +62,5 @@ jobs:
         run: |
           terraform plan \
             -input=false \
-            -var="docdb_master_password=${{ secrets.DOCDB_MASTER_PASSWORD }}"
+            -var="mongo_uri=${{ secrets.MONGO_URI }}"
         working-directory: infra
