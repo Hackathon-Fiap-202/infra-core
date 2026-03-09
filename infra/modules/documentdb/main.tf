@@ -80,9 +80,10 @@ resource "aws_secretsmanager_secret" "docdb_credentials" {
 resource "aws_secretsmanager_secret_version" "docdb_credentials" {
   secret_id = aws_secretsmanager_secret.docdb_credentials.id
   secret_string = jsonencode({
-    username = var.master_username
-    password = var.master_password
-    host     = aws_docdb_cluster.this.endpoint
-    port     = 27017
+    username  = var.master_username
+    password  = var.master_password
+    host      = aws_docdb_cluster.this.endpoint
+    port      = 27017
+    mongo_uri = "mongodb://${var.master_username}:${var.master_password}@${aws_docdb_cluster.this.endpoint}:27017/msvideo?authSource=admin&tls=false"
   })
 }
