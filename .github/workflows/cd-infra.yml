@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: infra-core-deploy
+  cancel-in-progress: false
+
 permissions:
   id-token: write
   contents: read
@@ -30,8 +34,9 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/github-action-role
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+          role-duration-seconds: 3600
 
       - name: Terraform Init (bootstrap)
         run: terraform init
@@ -42,11 +47,11 @@ jobs:
         working-directory: infra/bootstrap
 
       - name: Terraform Plan (bootstrap)
-        run: terraform plan
+        run: terraform plan -out=tfplan-bootstrap
         working-directory: infra/bootstrap
 
       - name: Terraform Apply (bootstrap)
-        run: terraform apply -auto-approve
+        run: terraform apply -auto-approve tfplan-bootstrap
         working-directory: infra/bootstrap
 
       - name: Terraform Init (infra)
@@ -58,9 +63,13 @@ jobs:
         working-directory: infra
 
       - name: Terraform Plan (infra)
-        run: terraform plan
+        run: |
+          terraform plan \
+            -input=false \
+            -var="docdb_master_password=${{ secrets.DOCDB_MASTER_PASSWORD }}" \
+            -out=tfplan
         working-directory: infra
 
       - name: Terraform Apply (infra)
-        run: terraform apply -auto-approve
+        run: terraform apply -auto-approve tfplan
         working-directory: infra
