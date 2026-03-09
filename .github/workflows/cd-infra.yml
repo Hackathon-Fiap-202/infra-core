@@ -62,7 +62,10 @@ jobs:
         working-directory: infra
 
       - name: Terraform Plan (infra)
-        run: terraform plan -out=tfplan
+        run: |
+          terraform plan \
+            -var="docdb_master_password=${{ secrets.DOCDB_MASTER_PASSWORD }}" \
+            -out=tfplan
         working-directory: infra
 
       - name: Terraform Apply (infra)

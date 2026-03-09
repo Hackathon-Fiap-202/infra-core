@@ -29,9 +29,9 @@ acl_name = "infra-acl"
 # DocumentDB
 docdb_cluster_identifier = "nextime-docdb"
 docdb_master_username    = "nexadmin"
-docdb_master_password    = "NexTime@2024!"
-docdb_instance_class     = "db.t3.medium"
-docdb_instance_count     = 1
+# docdb_master_password is injected at plan time via -var (GitHub Secret DOCDB_MASTER_PASSWORD)
+docdb_instance_class = "db.t3.medium"
+docdb_instance_count = 1
 
 # Tags
 tags = {
