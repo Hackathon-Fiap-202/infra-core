@@ -73,6 +73,40 @@ variable "route_table_name" {
 
 variable "region" {
   description = "Região da AWS"
-  type = string
+  type        = string
 }
+
+# ========================================
+# DocumentDB Variables
+# ========================================
+variable "docdb_cluster_identifier" {
+  description = "DocumentDB cluster identifier"
+  type        = string
+  default     = "nextime-docdb"
+}
+
+variable "docdb_master_username" {
+  description = "DocumentDB master username"
+  type        = string
+  default     = "nexadmin"
+}
+
+variable "docdb_master_password" {
+  description = "DocumentDB master password"
+  type        = string
+  sensitive   = true
+}
+
+variable "docdb_instance_class" {
+  description = "DocumentDB instance class"
+  type        = string
+  default     = "db.t3.medium"
+}
+
+variable "docdb_instance_count" {
+  description = "Number of DocumentDB instances"
+  type        = number
+  default     = 1
+}
+
 
