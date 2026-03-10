@@ -91,3 +91,9 @@ variable "mongo_uri" {
   sensitive   = true
 }
 
+variable "datadog_api_key" {
+  description = "Datadog API key (injected at plan time via GitHub Secret DATADOG_API_KEY)"
+  type        = string
+  sensitive   = true
+}
+

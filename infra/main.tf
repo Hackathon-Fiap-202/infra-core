@@ -91,3 +91,13 @@ module "documentdb" {
   mongo_uri          = var.mongo_uri
   tags               = var.tags
 }
+
+# Secrets Manager — Datadog API key
+# api_key is injected at plan time via GitHub Secret DATADOG_API_KEY (-var flag).
+# The ARN is exported as an output and consumed by Infra-ecs via remote state,
+# so no manual copy-paste is ever needed.
+module "datadog" {
+  source  = "./modules/datadog"
+  api_key = var.datadog_api_key
+  tags    = var.tags
+}
