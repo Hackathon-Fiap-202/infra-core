@@ -53,3 +53,8 @@ output "docdb_secret_arn" {
   description = "ARN of the Secrets Manager secret with MongoDB Atlas URI"
   value       = module.documentdb.secret_arn
 }
+
+output "datadog_api_key_secret_arn" {
+  description = "ARN of the Secrets Manager secret containing the Datadog API key"
+  value       = module.datadog.secret_arn
+}
