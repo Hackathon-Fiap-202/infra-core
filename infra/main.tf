@@ -48,6 +48,15 @@ module "route_table" {
   tags             = var.tags
 }
 
+module "route_table_private" {
+  source           = "./modules/route_table_private"
+  route_table_name = "infra-private-route-table"
+  vpc_id           = module.vpc.vpc_id
+  subnet_ids       = module.private_subnet.private_subnet_ids
+  nat_gateway_id   = module.nat_gateway.nat_gateway_id
+  tags             = var.tags
+}
+
 module "security_group_api" {
   source      = "./modules/security_group/public_sg"
   sg_api_name = var.sg_api_name
