@@ -1,184 +1,225 @@
-# Infra-Core
+# infra-core
 
-Infraestrutura como código (IaC) para provisionamento de recursos na AWS utilizando Terraform. Este projeto fornece uma base de infraestrutura modular e reutilizável para o projeto nexTime-frame.
+Infraestrutura base do projeto **nexTime-frame**, provisionada com Terraform na AWS. Este repositório define a rede (VPC, subnets, gateways, tabelas de rotas, ACLs, security groups), os repositórios de imagem Docker (ECR), os segredos gerenciados (Secrets Manager) e os VPC Endpoints necessários para que os demais stacks de infraestrutura funcionem.
 
-## 📋 Índice
+## Sumário
 
 - [Visão Geral](#visão-geral)
-- [Arquitetura](#arquitetura)
+- [Arquitetura de Rede](#arquitetura-de-rede)
 - [Recursos Provisionados](#recursos-provisionados)
 - [Pré-requisitos](#pré-requisitos)
-- [Configuração](#configuração)
-- [Uso](#uso)
-- [Estrutura do Projeto](#estrutura-do-projeto)
-- [Módulos](#módulos)
+- [Variáveis](#variáveis)
 - [Outputs](#outputs)
-- [Backend](#backend)
+- [Como Usar](#como-usar)
+- [Backend Remoto](#backend-remoto)
+- [CI/CD](#cicd)
+- [Ordem de Deploy](#ordem-de-deploy)
+- [Contribuição](#contribuição)
 
-## 🎯 Visão Geral
+---
 
-Este repositório contém a definição de infraestrutura core para provisionamento automatizado de recursos AWS, incluindo:
+## Visão Geral
 
-- **VPC** com configuração de DNS
-- **Subnets públicas e privadas** em múltiplas zonas de disponibilidade
-- **Internet Gateway** e **NAT Gateway** para conectividade
-- **Route Tables** configuradas
-- **Security Groups** para controle de tráfego
-- **Network ACLs** para segurança adicional
-- **API Gateway** (HTTP API v2)
+O `infra-core` é o **primeiro stack a ser aplicado** na ordem de deploy. Todos os demais stacks (`infra-messaging`, `infra-gateway`, `Infra-ecs`, `lambda-sender`) leem outputs deste estado remoto via `terraform_remote_state`.
 
-## 🏗️ Arquitetura
+---
 
-A infraestrutura é projetada seguindo boas práticas de segurança e alta disponibilidade:
+## Arquitetura de Rede
 
 ```
-┌─────────────────────────────────────────────────┐
-│                    VPC                          │
-│              (10.0.0.0/16)                     │
-│                                                 │
-│  ┌──────────────┐      ┌──────────────┐       │
-│  │ Public Subnet│      │ Public Subnet│       │
-│  │ 10.0.1.0/24  │      │ 10.0.2.0/24  │       │
-│  │   us-east-1a │      │   us-east-1b │       │
-│  │              │      │              │       │
-│  │  [NAT GW]    │      │              │       │
-│  └──────┬───────┘      └──────┬───────┘       │
-│         │                     │                │
-│         └─────────┬───────────┘                │
-│                   │                            │
-│            [Internet GW]                       │
-│                                                 │
-│  ┌──────────────┐      ┌──────────────┐       │
-│  │Private Subnet│      │Private Subnet│       │
-│  │ 10.0.6.0/24  │      │ 10.0.10.0/24 │       │
-│  │   us-east-1a │      │   us-east-1b │       │
-│  └──────────────┘      └──────────────┘       │
-└─────────────────────────────────────────────────┘
+Internet
+    │
+    ▼
+Internet Gateway
+    │
+    ├─── Public Subnet us-east-1a (10.0.1.0/24)  ◄── NAT Gateway
+    └─── Public Subnet us-east-1b (10.0.2.0/24)
+              │
+             NAT
+              │
+    ├─── Private Subnet us-east-1a (10.0.6.0/24)   ◄── ECS tasks, Lambda
+    └─── Private Subnet us-east-1b (10.0.10.0/24)
 ```
 
-## 🔧 Recursos Provisionados
+VPC Endpoints (Interface) mantêm o tráfego interno à AWS, sem passar pela internet:
+
+| Endpoint | Tipo | Serviço |
+|---|---|---|
+| `ecr.api` | Interface | Pull de imagens ECR |
+| `ecr.dkr` | Interface | Pull de imagens ECR (Docker) |
+| `secretsmanager` | Interface | Leitura de segredos |
+| `logs` | Interface | CloudWatch Logs (Fluent Bit) |
+| `s3` | Gateway | Acesso ao S3 sem NAT |
+
+---
+
+## Recursos Provisionados
 
 ### Rede
-- **VPC**: Rede virtual isolada com suporte a DNS
-- **Subnets Públicas**: 2 subnets em zonas de disponibilidade diferentes
-- **Subnets Privadas**: 2 subnets para recursos que não precisam de acesso direto à internet
-- **Internet Gateway**: Conectividade de saída para subnets públicas
-- **NAT Gateway**: Conectividade de saída para subnets privadas
-- **Route Tables**: Tabelas de roteamento configuradas
 
-### Segurança
-- **Security Groups**: Grupos de segurança para controle de tráfego de rede
-- **Network ACLs**: Controle adicional de acesso à rede
+| Módulo | Recurso | Descrição |
+|---|---|---|
+| `vpc` | `aws_vpc` | VPC `10.0.0.0/16` com DNS habilitado |
+| `subnet/public_subnet` | `aws_subnet` × 2 | Subnets públicas em `us-east-1a` e `us-east-1b` |
+| `subnet/private_subnet` | `aws_subnet` × 2 | Subnets privadas em `us-east-1a` e `us-east-1b` |
+| `internet_gateway` | `aws_internet_gateway` | IGW para saída pública |
+| `nat_gateway` | `aws_nat_gateway` | NAT na subnet pública `us-east-1a` |
+| `route_table` | `aws_route_table` | Tabela pública: `0.0.0.0/0` → IGW |
+| `route_table_private` | `aws_route_table` | Tabela privada: `0.0.0.0/0` → NAT |
+| `security_group/public_sg` | `aws_security_group` | SG da API (referenciado pelo ALB e VPC Link) |
+| `acl` | `aws_network_acl` | ACL associada às subnets |
 
-### API
-- **API Gateway**: HTTP API v2 configurado (módulo disponível)
+### Armazenamento e Imagens
 
-## 📦 Pré-requisitos
+| Módulo | Recurso | Descrição |
+|---|---|---|
+| `ecr` | `aws_ecr_repository` | Repositório ECR para `ms-video` e `process-video` |
+| `documentdb` | `aws_secretsmanager_secret` | Segredo com a URI do MongoDB Atlas |
+| `datadog` | `aws_secretsmanager_secret` | Segredo com a API Key do Datadog |
 
-Antes de começar, certifique-se de ter instalado:
+### VPC Endpoints (`vpc_endpoints.tf`)
 
-- [Terraform](https://www.terraform.io/downloads) >= 1.0
-- [AWS CLI](https://aws.amazon.com/cli/) configurado
-- Credenciais AWS configuradas (via `aws configure` ou variáveis de ambiente)
-- Acesso ao bucket S3 `nextime-frame-state-bucket-s3` na região `us-east-1`
+Cinco endpoints provisionados diretamente (sem módulo): `secretsmanager`, `ecr.api`, `ecr.dkr`, `logs` (Interface) e `s3` (Gateway).
 
-## ⚙️ Configuração
+---
 
-### 1. Configurar o Backend S3
+## Pré-requisitos
 
-O projeto utiliza um backend S3 remoto para armazenar o estado do Terraform. O bucket deve ser criado previamente usando o módulo bootstrap:
+- [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.0
+- [AWS CLI](https://aws.amazon.com/cli/) configurado com credenciais que permitam criar os recursos acima
+- Bucket S3 `nextime-frame-state-bucket-s3` criado previamente na região `us-east-1` (usado como backend remoto)
+
+---
+
+## Variáveis
+
+| Variável | Tipo | Descrição | Padrão |
+|---|---|---|---|
+| `project_name` | `string` | Prefixo usado em todos os recursos | `nextime-frame` |
+| `region` | `string` | Região AWS | `us-east-1` |
+| `vpc_name` | `string` | Nome da VPC | `infra-vpc` |
+| `cidr_block` | `string` | CIDR da VPC | `10.0.0.0/16` |
+| `azs` | `list(string)` | Zonas de disponibilidade | `["us-east-1a","us-east-1b"]` |
+| `public_subnets` | `list(string)` | CIDRs das subnets públicas | `["10.0.1.0/24","10.0.2.0/24"]` |
+| `private_subnets` | `list(string)` | CIDRs das subnets privadas | `["10.0.6.0/24","10.0.10.0/24"]` |
+| `mongo_uri` | `string` | URI do MongoDB Atlas (sensível) | `""` |
+| `datadog_api_key` | `string` | API Key do Datadog (sensível) | `""` |
+| `tags` | `map(string)` | Tags aplicadas a todos os recursos | `{ Owner = "nexTime-frame" }` |
+
+> As variáveis `mongo_uri` e `datadog_api_key` são injetadas em tempo de `plan/apply` via GitHub Secrets e nunca devem ser commitadas em `terraform.tfvars`.
+
+---
+
+## Outputs
+
+Estes valores são lidos pelos demais stacks via `terraform_remote_state` (bucket `nextime-frame-state-bucket-s3`, key `infra-core/infra.tfstate`):
+
+| Output | Descrição |
+|---|---|
+| `vpc_id` | ID da VPC |
+| `public_subnet_ids` | Lista de IDs das subnets públicas |
+| `private_subnet_ids` | Lista de IDs das subnets privadas |
+| `internet_gateway_id` | ID do Internet Gateway |
+| `route_table_id` | ID da Route Table pública |
+| `security_group_api_id` | ID do Security Group da API |
+| `network_acl_id` | ID da Network ACL |
+| `ms_video_ecr_url` | URL do repositório ECR do `ms-video` |
+| `process_video_ecr_url` | URL do repositório ECR do `process-video` |
+| `ecr_repository_urls` | Mapa com todas as URLs de repositórios ECR |
+| `docdb_secret_arn` | ARN do segredo do MongoDB Atlas |
+| `datadog_api_key_secret_arn` | ARN do segredo da API Key do Datadog |
+
+---
+
+## Como Usar
 
 ```bash
-cd infra/bootstrap
+cd infra-core/infra
+
+# Inicializar (conecta ao backend S3)
 terraform init
-terraform apply
+
+# Validar configuração
+terraform validate
+
+# Visualizar plano
+terraform plan \
+  -var="mongo_uri=$MONGO_URI" \
+  -var="datadog_api_key=$DATADOG_API_KEY"
+
+# Aplicar
+terraform apply \
+  -var="mongo_uri=$MONGO_URI" \
+  -var="datadog_api_key=$DATADOG_API_KEY"
+
+# Verificar outputs
+terraform output
 ```
 
-### 2. Configurar Variáveis
+---
 
-Edite o arquivo `infra/terraform.tfvars` com os valores desejados:
+## Backend Remoto
 
 ```hcl
-# VPC
-vpc_name   = "infra-vpc"
-cidr_block = "10.0.0.0/16"
-region     = "us-east-1"
-
-# Subnets
-subnet_name     = "infra-subnet"
-azs             = ["us-east-1a", "us-east-1b"]
-public_subnets  = ["10.0.1.0/24", "10.0.2.0/24"]
-private_subnets = ["10.0.6.0/24", "10.0.10.0/24"]
-subnet_group_name = "infra-subnet-private"
-
-# Gateways
-nat_name = "infra-nat-gateway"
-igw_name = "infra-igw"
-
-# Route Table
-route_table_name = "infra-public-route-table"
-route_cidr = "0.0.0.0/0"
-
-# Security Groups
-sg_api_name = "infra-sg-api"
-
-# ACL
-acl_name = "infra-acl"
-
-# Tags
-tags = {
-  Owner = "nexTime-frame"
+backend "s3" {
+  bucket  = "nextime-frame-state-bucket-s3"
+  key     = "infra-core/infra.tfstate"
+  region  = "us-east-1"
+  encrypt = true
 }
 ```
 
-## 🚀 Uso
+---
 
-### Inicializar o Terraform
+## CI/CD
 
-```bash
-cd infra
-terraform init
+O pipeline `.github/workflows/cd-infra.yml` é acionado em push para `main`.
+
+| Etapa | Comando |
+|---|---|
+| Checkout + configure AWS | `aws-actions/configure-aws-credentials` via OIDC (`AWS_ROLE_ARN`) |
+| Init | `terraform init` |
+| Validate | `terraform validate` |
+| Plan | `terraform plan -var="mongo_uri=..." -var="datadog_api_key=..."` |
+| Apply | `terraform apply -auto-approve ...` |
+
+**Secrets do GitHub necessários:**
+
+| Secret | Usado em |
+|---|---|
+| `AWS_ACCOUNT_ID` | Construção do ARN da role |
+| `AWS_ROLE_ARN` | Autenticação OIDC |
+| `MONGO_URI` | Injeta URI do MongoDB no Secrets Manager |
+| `DATADOG_API_KEY` | Injeta API Key do Datadog no Secrets Manager |
+
+---
+
+## Ordem de Deploy
+
+> O `infra-core` **deve ser o primeiro stack aplicado**. Os stacks seguintes dependem dos seus outputs.
+
+```
+1. infra-core          ← este repositório
+2. infra-messaging
+3. infra-gateway
+4. Infra-ecs
+5. lambda-sender
 ```
 
-### Validar a Configuração
+---
 
-```bash
-terraform validate
-```
-
-### Visualizar o Plano de Execução
-
-```bash
-terraform plan
-```
-
-### Aplicar a Infraestrutura
-
-```bash
-terraform apply
-```
-
-### Destruir a Infraestrutura
-
-```bash
-terraform destroy
-```
-
-## 📁 Estrutura do Projeto
+## Estrutura do Projeto
 
 ```
 infra-core/
 ├── infra/
-│   ├── main.tf                 # Configuração principal dos módulos
-│   ├── variables.tf            # Definição de variáveis
-│   ├── outputs.tf              # Outputs da infraestrutura
-│   ├── providers.tf            # Configuração de providers e backend
-│   ├── terraform.tfvars        # Valores das variáveis
-│   ├── bootstrap/              # Scripts para criar o bucket S3
-│   │   ├── main.tf
-│   │   ├── variables.tf
-│   │   └── outputs.tf
-│   └── modules/                # Módulos reutilizáveis
+│   ├── main.tf              # Instancia todos os módulos
+│   ├── variables.tf         # Declaração de variáveis
+│   ├── outputs.tf           # Outputs exportados para outros stacks
+│   ├── providers.tf         # Provider AWS + backend S3
+│   ├── terraform.tfvars     # Valores não-sensíveis das variáveis
+│   ├── vpc_endpoints.tf     # VPC Interface/Gateway Endpoints
+│   └── modules/
 │       ├── vpc/
 │       ├── subnet/
 │       │   ├── public_subnet/
@@ -186,87 +227,18 @@ infra-core/
 │       ├── internet_gateway/
 │       ├── nat_gateway/
 │       ├── route_table/
+│       ├── route_table_private/
 │       ├── security_group/
 │       │   └── public_sg/
 │       ├── acl/
-│       └── api_gateway/
+│       ├── ecr/
+│       ├── documentdb/
+│       └── datadog/
 └── README.md
 ```
 
-## 🧩 Módulos
+---
 
-### VPC
-Cria uma VPC com suporte a DNS habilitado.
+## Contribuição
 
-### Subnets
-- **Public Subnet**: Subnets públicas com acesso à internet via Internet Gateway
-- **Private Subnet**: Subnets privadas com acesso à internet via NAT Gateway
-
-### Internet Gateway
-Gateway para permitir comunicação entre a VPC e a internet.
-
-### NAT Gateway
-Gateway para permitir que recursos em subnets privadas acessem a internet.
-
-### Route Table
-Tabela de roteamento configurada para as subnets públicas.
-
-### Security Group
-Grupos de segurança para controle de tráfego de rede (configurado para API).
-
-### ACL
-Network Access Control List para controle adicional de segurança.
-
-### API Gateway
-Módulo para criação de HTTP API Gateway (v2) - disponível para uso.
-
-## 📤 Outputs
-
-Após a aplicação, os seguintes outputs estarão disponíveis:
-
-- `vpc_id`: ID da VPC criada
-- `public_subnet_ids`: Lista de IDs das subnets públicas
-- `private_subnet_ids`: Lista de IDs das subnets privadas
-- `internet_gateway_id`: ID do Internet Gateway
-- `route_table_id`: ID da Route Table
-- `security_group_api_id`: ID do Security Group da API
-- `network_acl_id`: ID do Network ACL
-
-Para visualizar os outputs:
-
-```bash
-terraform output
-```
-
-## 💾 Backend
-
-O estado do Terraform é armazenado remotamente no S3:
-
-- **Bucket**: `nextime-frame-state-bucket-s3`
-- **Key**: `infra-core/infra.tfstate`
-- **Região**: `us-east-1`
-- **Criptografia**: Habilitada (AES256)
-- **Versionamento**: Habilitado
-
-## 🔐 Segurança
-
-- O estado do Terraform é armazenado em S3 com criptografia
-- Versionamento do bucket S3 está habilitado
-- Security Groups e ACLs configurados para controle de acesso
-- Subnets privadas para recursos sensíveis
-
-## 📝 Notas
-
-- Certifique-se de que o bucket S3 do backend existe antes de executar `terraform init`
-- Ajuste os CIDRs conforme necessário para evitar conflitos
-- As tags são aplicadas a todos os recursos criados
-- O projeto está configurado para a região `us-east-1` por padrão
-
-## 👥 Contribuição
-
-Este projeto faz parte do hackaton SOAT para o projeto nexTime-frame.
-
-## 📄 Licença
-
-Este projeto é propriedade da equipe nexTime-frame.
-
+Este repositório faz parte do hackathon FIAP — nexTime-frame. Siga o padrão de commits convencional (`feat:`, `fix:`, `docs:`, `chore:`) e mantenha a estrutura modular do Terraform.
