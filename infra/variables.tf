@@ -89,5 +89,13 @@ variable "mongo_uri" {
   description = "MongoDB Atlas connection URI (injected at plan time via GitHub Secret MONGO_URI)"
   type        = string
   sensitive   = true
+  default     = ""
+}
+
+variable "datadog_api_key" {
+  description = "Datadog API key (injected at plan time via GitHub Secret DATADOG_API_KEY)"
+  type        = string
+  sensitive   = true
+  default     = ""
 }
 

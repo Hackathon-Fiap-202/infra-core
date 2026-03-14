@@ -48,6 +48,15 @@ module "route_table" {
   tags             = var.tags
 }
 
+module "route_table_private" {
+  source           = "./modules/route_table_private"
+  route_table_name = "infra-private-route-table"
+  vpc_id           = module.vpc.vpc_id
+  subnet_ids       = module.private_subnet.private_subnet_ids
+  nat_gateway_id   = module.nat_gateway.nat_gateway_id
+  tags             = var.tags
+}
+
 module "security_group_api" {
   source      = "./modules/security_group/public_sg"
   sg_api_name = var.sg_api_name
@@ -81,4 +90,14 @@ module "documentdb" {
   cluster_identifier = var.docdb_cluster_identifier
   mongo_uri          = var.mongo_uri
   tags               = var.tags
+}
+
+# Secrets Manager — Datadog API key
+# api_key is injected at plan time via GitHub Secret DATADOG_API_KEY (-var flag).
+# The ARN is exported as an output and consumed by Infra-ecs via remote state,
+# so no manual copy-paste is ever needed.
+module "datadog" {
+  source  = "./modules/datadog"
+  api_key = var.datadog_api_key
+  tags    = var.tags
 }

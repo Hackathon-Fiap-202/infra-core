@@ -25,6 +25,18 @@ resource "aws_network_acl_rule" "allow_https" {
   to_port        = 443
 }
 
+# Allow ephemeral/return traffic for NAT Gateway (stateless NACL requires this)
+resource "aws_network_acl_rule" "allow_ephemeral_return" {
+  network_acl_id = aws_network_acl.this.id
+  rule_number    = 120
+  egress         = false
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "0.0.0.0/0"
+  from_port      = 1024
+  to_port        = 65535
+}
+
 resource "aws_network_acl_rule" "allow_all_egress" {
   network_acl_id = aws_network_acl.this.id
   rule_number    = 200
