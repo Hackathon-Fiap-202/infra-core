@@ -74,6 +74,7 @@ jobs:
           terraform plan \
             -input=false \
             -var="mongo_uri=${{ secrets.MONGO_URI }}" \
+            -var="datadog_api_key=${{ secrets.DATADOG_API_KEY }}" \
             -out=tfplan
         working-directory: infra
 
